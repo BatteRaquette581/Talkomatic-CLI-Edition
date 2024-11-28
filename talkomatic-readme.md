@@ -2,12 +2,6 @@
 
 A command-line interface (CLI) chat application inspired by the classic Talkomatic. This CLI allows users to connect to a Socket.IO server, join chat rooms, and communicate in real-time with other users.
 
-![Talkomatic CLI Demo](demo.png)
-
-This is a CLI for Talkomatic Classic Edition, created by Mohd Mahmodi ([@mohdmahmodi](https://x.com/mohdmahmodi)). 
-
-Talkomatic Classic is a rebuilt open source version of the original Talkomatic system.
-
 ## Table of Contents
 
 - [Features](#features)
@@ -23,6 +17,14 @@ Talkomatic Classic is a rebuilt open source version of the original Talkomatic s
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 
+## Features
+
+- **Real-Time Communication**: Send and receive messages in real-time using Socket.IO
+- **Room Management**: Create, join, and leave chat rooms
+- **Semi-Private Rooms**: Create and join rooms with access codes
+- **Interactive UI**: A text-based user interface with separate panels for help, room list, chat messages, and input
+- **Dynamic Updates**: The interface updates dynamically as new messages and rooms are available
+
 ## Installation
 
 ### Prerequisites
@@ -32,20 +34,10 @@ Talkomatic Classic is a rebuilt open source version of the original Talkomatic s
 
 ### Installing Dependencies
 
-Install all required Python packages using `pip`:
+Install the required Python packages using `pip`:
 
 ```bash
-pip install python-socketio aiohttp prompt_toolkit click asyncio
-```
-
-Or install them individually:
-
-```bash
-pip install python-socketio  # Socket.IO client functionality
-pip install aiohttp         # Required by python-socketio
-pip install prompt_toolkit  # Interactive CLI interface
-pip install click          # Command line argument parsing
-pip install asyncio        # Async/await functionality
+pip install asyncio python-socketio prompt_toolkit click
 ```
 
 ### Running the Application
@@ -120,4 +112,3 @@ This project is open-source and available under the MIT License.
 - Inspired by the original Talkomatic created by Doug Brown and David R. Woolley in 1973
 - Built using the prompt_toolkit library
 - Real-time communication powered by Socket.IO
-- Special thanks to Mohd Mahmodi for creating Talkomatic Classic Edition
