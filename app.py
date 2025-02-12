@@ -378,7 +378,7 @@ class TalkomaticCLI:
         await self.application.run_async()
 
 @click.command()
-@click.option('--server', default='https://open.talkomatic.co', help='Socket.IO server URL')
+@click.option('--server', default='https://classic.talkomatic.co', help='Socket.IO server URL')
 @click.option('--username', prompt='Enter your username', help='Your username')
 @click.option('--location', prompt='Enter your location', default='On The Web', help='Your location')
 def main(server, username, location):
