@@ -1,0 +1,6 @@
+python-socketio
+aiohttp
+prompt_toolkit
+click
+asyncio
+requests

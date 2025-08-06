@@ -1,5 +1,6 @@
 import asyncio
 import socketio
+from datetime import datetime, UTC
 from prompt_toolkit import Application
 from prompt_toolkit.layout import Layout, HSplit, VSplit, DynamicContainer
 from prompt_toolkit.widgets import TextArea, Label, Frame
@@ -7,10 +8,16 @@ from prompt_toolkit.styles import Style
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.layout.dimension import Dimension
+from requests import post
+from sys import stderr
+from pathlib import Path
+from json import load, dump
 import click
 import re
 
+
 class TalkomaticCLI:
+
     def __init__(self, server_url):
         self.server_url = server_url
         self.sio = socketio.AsyncClient(logger=False, engineio_logger=False)
@@ -19,7 +26,8 @@ class TalkomaticCLI:
         self.current_room = None
         self.user_id = None
         self.rooms = {}
-        self.chat_messages = {}  # {user_id: {'username': str, 'message': str, 'text_area': TextArea}}
+        self.chat_messages = {
+        }  # {user_id: {'username': str, 'message': str, 'text_area': TextArea}}
         self.system_messages = []  # List to store system messages
         self.my_message = ''
         self.last_access_code = None  # To store access code used during room creation
@@ -41,6 +49,7 @@ class TalkomaticCLI:
         self.create_ui()
 
     def setup_socket_events(self):
+
         @self.sio.event
         async def connect():
             self.status_bar.text = f"Connected to {self.server_url}"
@@ -77,7 +86,9 @@ class TalkomaticCLI:
         @self.sio.on('chat update')
         async def on_chat_update(data):
             if data['userId'] != self.user_id:
-                await self.update_chat_message(data['userId'], data['username'], data.get('diff', {}))
+                await self.update_chat_message(data['userId'],
+                                               data['username'],
+                                               data.get('diff', {}))
 
         @self.sio.on('user joined')
         async def on_user_joined(data):
@@ -86,7 +97,9 @@ class TalkomaticCLI:
 
         @self.sio.on('user left')
         async def on_user_left(user_id):
-            username = self.chat_messages.get(user_id, {}).get('username', 'Unknown User')
+            username = self.chat_messages.get(user_id,
+                                              {}).get('username',
+                                                      'Unknown User')
             message = f"{username} left the room"
             self.append_system_message(message)
             if user_id in self.chat_messages:
@@ -125,13 +138,12 @@ class TalkomaticCLI:
             height=Dimension(preferred=10),
             wrap_lines=False,
         )
-        self.chat_area_container = DynamicContainer(lambda: self.get_chat_area())
-        self.input_field = TextArea(
-            height=1,
-            prompt='> ',
-            multiline=False,
-            style='class:input_field'
-        )
+        self.chat_area_container = DynamicContainer(
+            lambda: self.get_chat_area())
+        self.input_field = TextArea(height=1,
+                                    prompt='> ',
+                                    multiline=False,
+                                    style='class:input_field')
         self.status_bar = Label(text='Not connected', style='class:status')
 
         # Key bindings
@@ -140,7 +152,8 @@ class TalkomaticCLI:
         @self.kb.add('enter')
         async def _(event):
             buffer_text = self.input_field.text.strip()
-            if buffer_text.startswith(('rooms', 'join ', 'create ', 'createp ', 'leave', 'help', 'quit')):
+            if buffer_text.startswith(('rooms', 'join ', 'create ', 'createp ',
+                                       'leave', 'help', 'quit')):
                 await self.handle_user_input(buffer_text)
                 self.input_field.text = ''
             else:
@@ -155,11 +168,13 @@ class TalkomaticCLI:
         self.input_field.buffer.on_text_changed += self.on_input_changed
 
         self.root_container = HSplit([
-            Label(text=HTML('<username>Talkomatic CLI</username>'), style='class:header'),
+            Label(text=HTML('<username>Talkomatic CLI</username>'),
+                  style='class:header'),
             VSplit([
                 Frame(self.help_menu, title='Help Menu'),
                 Frame(self.room_list_area, title='Available Rooms'),
-            ], height=Dimension(preferred=10)),
+            ],
+                   height=Dimension(preferred=10)),
             Frame(self.chat_area_container, title='Chat Messages'),
             Frame(self.input_field, title='Input'),
             self.status_bar,
@@ -172,7 +187,7 @@ class TalkomaticCLI:
             key_bindings=self.kb,
             style=self.style,
             full_screen=True,
-            refresh_interval=1/30,  # Refresh at 30 FPS
+            refresh_interval=1 / 30,  # Refresh at 30 FPS
         )
 
     def on_input_changed(self, event):
@@ -190,8 +205,7 @@ class TalkomaticCLI:
             "  leave                     - Leave the current room\n"
             "  help                      - Display this help message\n"
             "  quit                      - Exit the application\n"
-            "\nType your message and it will be sent in real-time."
-        )
+            "\nType your message and it will be sent in real-time.")
         return help_text
 
     async def handle_user_input(self, user_input):
@@ -201,7 +215,8 @@ class TalkomaticCLI:
         elif user_input.lower() == 'rooms':
             await self.update_lobby()
         elif user_input.lower().startswith('join '):
-            match = re.match(r'^join\s+(\S+)(?:\s+(\S+))?$', user_input, re.IGNORECASE)
+            match = re.match(r'^join\s+(\S+)(?:\s+(\S+))?$', user_input,
+                             re.IGNORECASE)
             if match:
                 room_id = match.group(1)
                 access_code = match.group(2)
@@ -209,11 +224,15 @@ class TalkomaticCLI:
             else:
                 self.status_bar.text = "Invalid join command. Usage: join <room_id> [access_code]"
         elif user_input.lower().startswith('createp '):
-            match = re.match(r'^createp\s+(.+?)\s+(\S+)$', user_input, re.IGNORECASE)
+            match = re.match(r'^createp\s+(.+?)\s+(\S+)$', user_input,
+                             re.IGNORECASE)
             if match:
                 name = match.group(1)
                 access_code = match.group(2)
-                await self.create_room(name, 'semi-private', 'default', access_code=access_code)
+                await self.create_room(name,
+                                       'semi-private',
+                                       'default',
+                                       access_code=access_code)
             else:
                 self.status_bar.text = "Invalid createp command. Usage: createp <name> <access_code>"
         elif user_input.lower().startswith('create '):
@@ -232,7 +251,9 @@ class TalkomaticCLI:
 
     def update_prompt(self):
         room_text = f"[{self.current_room}]" if self.current_room else ""
-        self.input_field.prompt = HTML(f'<username>{self.username}</username>@<location>{self.location}</location>{room_text}> ')
+        self.input_field.prompt = HTML(
+            f'<username>{self.username}</username>@<location>{self.location}</location>{room_text}> '
+        )
 
     def update_room_list(self):
         rooms_text = ''
@@ -307,21 +328,44 @@ class TalkomaticCLI:
 
     async def connect(self):
         try:
-            await self.sio.connect(self.server_url, transports=['websocket'])
+            needs_to_request = True
+            if Path("TMCLI_TOKEN_DO_NOT_SHARE_OR_REMOVE").exists():
+                with open("TMCLI_TOKEN_DO_NOT_SHARE_OR_REMOVE",
+                          "r") as token_file:
+                    token_json = load(token_file)
+                    token_expiry = datetime.fromisoformat(
+                        token_json["expiresAt"])
+                    if datetime.now(UTC) < token_expiry:
+                        needs_to_request = False
+                        token = token_json["token"]
+
+            if needs_to_request:
+                token_res = post(
+                    f"{self.server_url}/api/v1/bot-tokens/request")
+                if token_res.status_code != 201:
+                    raise Exception(str(token_res))
+                token = token_res.json()["token"]
+                with open("TMCLI_TOKEN_DO_NOT_SHARE_OR_REMOVE",
+                          "w") as token_file:
+                    dump(token_res.json(), token_file)
+
+            await self.sio.connect(self.server_url,
+                                   auth={"token": token},
+                                   transports=['websocket'])
         except Exception as e:
-            self.status_bar.text = f"Error connecting to the server: {e}"
+            self.status_bar.text = f"Error connecting to the server: {repr(e)}"
+            print(f"Error connecting to the server: {repr(e)}", file=stderr)
             await asyncio.sleep(3)
             raise SystemExit(1)
 
     async def sign_in(self, username, location):
-        await self.sio.emit('join lobby', {'username': username, 'location': location})
+        await self.sio.emit('join lobby', {
+            'username': username,
+            'location': location
+        })
 
     async def create_room(self, name, room_type, layout, access_code=None):
-        data = {
-            'name': name,
-            'type': room_type,
-            'layout': layout
-        }
+        data = {'name': name, 'type': room_type, 'layout': layout}
         if access_code:
             data['accessCode'] = access_code
         await self.sio.emit('create room', data)
@@ -344,7 +388,8 @@ class TalkomaticCLI:
 
     async def send_chat_update(self, message):
         if self.current_room:
-            current_message = self.chat_messages.get(self.user_id, {}).get('message', '')
+            current_message = self.chat_messages.get(self.user_id,
+                                                     {}).get('message', '')
             diff = self.get_diff(current_message, message)
             if diff:
                 await self.sio.emit('chat update', {'diff': diff})
@@ -356,7 +401,11 @@ class TalkomaticCLI:
                         wrap_lines=True,
                         style='class:chat_area',
                     )
-                    self.chat_messages[self.user_id] = {'username': self.username, 'message': '', 'text_area': message_area}
+                    self.chat_messages[self.user_id] = {
+                        'username': self.username,
+                        'message': '',
+                        'text_area': message_area
+                    }
                     self.refresh_chat_display()
                 self.chat_messages[self.user_id]['message'] = message
                 self.chat_messages[self.user_id]['text_area'].text = message
@@ -377,23 +426,31 @@ class TalkomaticCLI:
         self.update_prompt()
         await self.application.run_async()
 
+
 @click.command()
-@click.option('--server', default='https://classic.talkomatic.co', help='Socket.IO server URL')
+@click.option('--server',
+              default='https://classic.talkomatic.co',
+              help='Socket.IO server URL')
 @click.option('--username', prompt='Enter your username', help='Your username')
-@click.option('--location', prompt='Enter your location', default='On The Web', help='Your location')
+@click.option('--location',
+              prompt='Enter your location',
+              default='On The Web',
+              help='Your location')
 def main(server, username, location):
     cli = TalkomaticCLI(server)
     cli.username = username
     cli.location = location
     try:
-        asyncio.get_event_loop().run_until_complete(cli.run())
+        asyncio.run(cli.run())
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
     finally:
         try:
-            asyncio.get_event_loop().run_until_complete(cli.sio.disconnect())
+            asyncio.run(cli.sio.disconnect())
         except:
             pass
 
+
 if __name__ == '__main__':
     main()
+Z

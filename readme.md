@@ -35,12 +35,16 @@ Talkomatic Classic is a rebuilt open source version of the original Talkomatic s
 Install all required Python packages using `pip`:
 
 ```bash
-pip install python-socketio aiohttp prompt_toolkit click asyncio
+pip install -r requirements.txt # (if you cloned into the repository and are in the repository's directory)
 ```
 
 Or install them individually:
 
 ```bash
+pip install python-socketio aiohttp prompt_toolkit click asyncio
+
+# or
+
 pip install python-socketio  # Socket.IO client functionality
 pip install aiohttp         # Required by python-socketio
 pip install prompt_toolkit  # Interactive CLI interface
@@ -72,6 +76,9 @@ Once the application is running, you will see a user interface divided into seve
 - **Chat Messages**: Shows the chat conversation
 - **Input Field**: Type commands or messages here
 - **Status Bar**: Displays connection and status messages
+
+***Note: a TMCLI_TOKEN_DO_NOT_SHARE_OR_REMOVE file will be created in your current working directory the first time you run it.
+This is normal and is needed for the CLI to function, do NOT remove (removing will need you to wait 1 hour before being able to get another token) or share it.***
 
 ### Commands
 
